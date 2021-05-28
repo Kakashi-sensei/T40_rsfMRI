@@ -1,0 +1,1238 @@
+---
+title: "TOMM40 & NEUROIMAGING"
+author: "IBIS LAB"
+date: "05/12/2021"
+output: pdf_document
+documentclass: report
+geometry: margin=1in
+fontsize: 12pt
+pagenumber: TRUE
+---
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=60))
+setwd("C:/Users/sle05/Desktop")
+#tinytex::install_tinytex()
+options(max.print = .Machine$integer.max)
+```
+
+```{r Libraries, include=FALSE}
+###########
+#Libraries#
+###########
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+
+# usage
+packages <- c("plyr", "dplyr", "stringr", "reshape2","ggplot2","glmnet","corrplot","data.table","lm.beta","knitr","jtools","interactions","sandwich", "emmeans","jmv","heplots","sjstats","formatR")
+ipak(packages)
+```
+
+```{r, Functions, include=FALSE}
+
+###########
+#Multiplot# 
+###########
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+###########
+#plotcorr #
+###########
+plotcorr <- function(xx = NULL, corrplot.labels = names(xx), cor.xx = NULL, var.xx = NULL, labels.col="black", cor.col="darkgreen", vars.col="#6A3D9A", digits.var = 2)
+{
+  require(corrplot)
+  if (is.null(cor.xx))
+    cor.xx <- cor(xx) else {
+      d <- diag(cor.xx)
+      if (any(d <= 0)) {
+        if (is.null(xx)) {
+          cat("Invalid correlation matrix provided, with no data to calculate from\nExiting:")
+          cor.xx <- NULL
+        }
+        else
+        {
+          ##                                                                              ## ignore dispersion/correlation matrix
+          ##
+          cat("this is not a valid correlation matrix: calculating our own from the data\n")
+          cor.xx <- cor(xx)
+        }
+      }
+      else {
+        if (!((length(unique(d)) == 1) & (unique(d) == 1))) {
+          ##
+          ## not a correlation but a dispersion 
+          ##
+          if (var.xx != diag(cor.xx)) {
+            cat("supplied variances do not match diagonals of the supplied dispersion matrix: variances will be recalculated from the dispersion matrix\n")
+            var.xx <- d
+          }
+          ## not correlation matrix, but covariance matrix
+          ## convert to correlation matrix
+          cor.xx <- diag(1/sqrt(d)) %*% cor.xx %*% diag(1/sqrt(d))
+        }
+      }
+    }
+  if (is.null(var.xx)) {
+    if (is.null(xx)) {
+      var.xx <- NULL
+      cat("variances not provided, with no dataset\nExiting\n")
+    }
+    else 
+      var.xx <- apply(X = xx, MAR = 2, FUN = var)
+  }
+  if (!all(c(is.null(var.xx), is.null(cor.xx), is.null(xx)))) {
+    corrplot(cor.xx, method="ellipse", type="lower", tl.pos="n", tl.col=labels.col, cl.pos="r")
+    rownames(cor.xx) <- as.character(round(var.xx, digits = digits.var)) ##Positioning variances on the diagonals
+    colnames(cor.xx) <- rownames(cor.xx) ##Positioning variances on the diagonals
+    corrplot(cor.xx, method="number", type="upper", col= cor.col, cl.pos="n", tl.pos="d", tl.col = vars.col, add=TRUE)
+    axis(3, at = 1:ncol(cor.xx), labels = corrplot.labels, lty = 0, pos = ncol(cor.xx) + c(0.4, 0.7))
+    axis(2, at = nrow(cor.xx):1, labels = corrplot.labels, lty = 0, pos = c(0.6, ncol(cor.xx) + 0.7))
+  }
+}
+#
+################
+#LAVAAN Predict#
+################
+predict_lavaan <- function(fit, newdata = NULL){
+  stopifnot(inherits(fit, "lavaan"))
+  
+  #Make sure we can use this
+  if(!inspect(fit, "meanstructure")) stop("Need to supply meanstructure = TRUE in fit\n")
+  if(is.null(newdata)){
+    newdata <- data.frame(inspect(fit, "data"))
+    names(newdata) <- lavNames(fit)
+  }
+  
+  if(length(lavNames(fit, type="lv"))!=0) stop("Does not currently work with latent variables\n")
+  
+  #check for new data
+  if(sum(!(lavNames(fit, type="ov.x") %in% names(newdata)))>0) stop("Not all exogenous variables supplied!")
+  
+  #Add some new columns to newdata
+  newdata$Intercept <- 1
+  newdata[lavNames(fit, "ov.nox")] <- 0
+  
+  
+  mod_df <- data.frame(lhs = fit@ParTable$lhs,
+                       op = fit@ParTable$op,
+                       rhs = fit@ParTable$rhs,
+                       exo = fit@ParTable$exo,
+                       est = fit@ParTable$est,
+                       se = fit@ParTable$se,
+                       stringsAsFactors=FALSE)
+  
+  #Drop covariances
+  mod_df <- mod_df[-which(mod_df$op=="~~"),]
+  mod_df[which(mod_df$op=="~1"),]$rhs <- "Intercept"
+  
+  #get rid of exogenous on lhs
+  mod_df <- mod_df[-which(mod_df$exo==1),]
+  
+  #Order by lhs
+  mod_df <- mod_df[sort(mod_df$lhs, index.return=TRUE)$ix,]
+  
+  #let us know which variables on the rhs are exogenous
+  mod_df$ord <- 0
+  mod_df[which(!(mod_df$rhs %in% mod_df$lhs)),]$ord <- 1
+  
+  #Make a "order"
+  ord_current <- 1
+  while(sum(mod_df$ord==0)>0){
+    for(r in unique(mod_df$lhs)){
+      val <-  sum(mod_df[which(mod_df$lhs==r),]$ord==0)
+      if(val==0) {
+        mod_df[which(mod_df$lhs==r),]$ord <- ord_current
+        mod_df[which(mod_df$rhs==r),]$ord <- ord_current+1
+      }
+    }
+    ord_current <- ord_current +1
+  }
+  
+  #correct for ragged ordering
+  for(r in unique(mod_df$lhs)){
+    mod_df[which(mod_df$lhs==r),]$ord <- max(mod_df[which(mod_df$lhs==r),]$ord)
+  }
+  
+  #sort by order 
+  mod_df <- mod_df[sort(mod_df$ord, index.return=TRUE)$ix,]
+  
+  #now do the fitting in order
+  fit_df <- data.frame(base = rep(1, nrow(newdata)))
+  
+  for(r in unique(mod_df$lhs)){
+    subdf <- subset(mod_df, mod_df$lhs==r)
+    #make a formula
+    rhs <- paste0(subdf$rhs, collapse=" + ")
+    form <- as.formula(paste0(r, " ~ ", rhs))
+    
+    #use formula to get right part of the data in right format
+    mod_mat <- model.matrix(form, newdata)[,-1]
+    new_val = mod_mat %*% subdf$est
+    
+    fit_df[[r]] <- new_val
+    newdata[[r]] <- new_val
+  }
+  
+  return(fit_df[,-1])
+  
+}
+
+
+fitted_lavaan <- function(fit){
+  predict_lavaan(fit)
+}
+
+residuals_lavaan <- function(fit){
+  fitted_vals <- fitted_lavaan(fit)
+  
+  rawdata <- data.frame(inspect(fit, "data"))
+  names(rawdata) <- lavNames(fit)
+  
+  res <- data.frame(base = rep(1, nrow(rawdata)))
+  for(vals in names(fitted_vals)){
+    res[[vals]] <- rawdata[[vals]] - fitted_vals[[vals]] 
+  }
+  
+  return(res[,-1])
+}
+```
+
+```{r rsFRMI, include=FALSE}
+DMS <- read.csv(file="UKB_Jan_27_2020.csv", header=T)
+DMS <- DMS[as.numeric(rownames(unique(data.frame(DMS$EID)[1]))),]
+
+colnames(DMS)[colnames(DMS)=="RecruitmentAge"] <- "Age"
+
+require(dplyr)
+
+DMRS <- select(DMS, EID, Dx_CNSDisease, Dx_Dementia, Dx_CeVDisease, Sex, Age, Education, SocialClass, APOE_all, FamilyHistoryAD, T40_Gcar, rsfMRI_Component1, rsfMRI_Component2, rsfMRI_Component3, rsfMRI_Component4, rsfMRI_Component5, rsfMRI_Component6, rsfMRI_Component7, rsfMRI_Component8, rsfMRI_Component9, rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18, rsfMRI_Component19, rsfMRI_Component20, rsfMRI_Component21)
+
+DMRS$SocialClass <- relevel(DMRS$SocialClass, ref="UpperClass") 
+DMRS$FamilyHistoryAD <- as.factor(DMRS$FamilyHistoryAD)
+levels(DMRS$FamilyHistoryAD) <- c("Neg", "Pos")
+DMRS$Education<- as.factor(DMRS$Education)
+DMRS$Sex <- factor(DMRS$Sex)
+#levels(DMRS$Sex)
+#levels(DMRS$Sex) <- c("Female", "Male")
+DMRS$Sex <- relevel(DMRS$Sex, ref="Male") 
+
+DMRS$T40_Gcar <- as.factor(DMRS$T40_Gcar)
+DMRS$Agecat<-cut(DMRS$Age, c(39,64,100),labels=c(1:2))
+levels(DMRS$Agecat) <- c("Middle Age","Old Age")
+summary(DMRS$Agecat)
+
+#12708 obs
+DMRS <- DMRS[DMRS$Dx_CNSDisease!="1",]
+DMRS <- DMRS[DMRS$Dx_CeVDisease!="1",]
+DMRS <- DMRS[DMRS$Dx_Dementia!="1",]
+#After excluding these conditions -> 12143 obs
+
+#DMRS2 <- DMRS[complete.cases(DMRS),] #10921 obs
+#levels(DMRS2$T40_Gcar) <- c("Non-Carrier", "Carrier")
+
+#1.) E2’s vs. E3’s vs. E4’s
+#—E2/E2 + E2/E3 vs. E3/E3 vs. E2/E4 + E3/E4 + E4/E4
+DMRS2  <- DMRS[DMRS$APOE_all %in% c("e2/e2","e2/e3","e3/e3","e4/e3","e4/e4"),] #8640
+DMRS2 <- DMRS2[complete.cases(DMRS2),] #8222 obs
+
+DMRS3 <- DMRS2
+levels(DMRS3$T40_Gcar) <- c("Non-Carrier", "Carrier")
+DMRS3$APOE_all <- revalue(DMRS3$APOE_all, c("e2/e2"="E2", "e2/e3"="E2", "e3/e3"="E3", "e4/e3"="E4", "e4/e4"="E4"))
+DMRS3$APOE_all <- relevel(DMRS3$APOE_all, ref="E3") 
+
+DMRS5 <- DMRS2[DMRS2$APOE_all %in% c("e2/e2","e2/e3","e3/e3","e4/e3","e4/e4"),] #8222 obs
+DMRS5$APOE_all <- revalue(DMRS5$APOE_all, c("e2/e2"="E4-", "e2/e3"="E4-", "e3/e3"="E4-","e4/e3"="E4+", "e4/e4"="E4+"))
+
+DMRS6 <- DMRS5[DMRS5$APOE_all %in% c("E4+"),] #2135 obs
+
+#write.csv(DMRS5, "FinalT40.csv")
+```
+
+```{r Descriptive, include=FALSE}
+
+#rs
+mean(DMRS5$Age)
+sd(DMRS5$Age)
+range(DMRS5$Age)
+
+table(DMRS5$Sex)
+table(DMRS5$SocialClass)
+table(DMRS5$Education)
+table(DMRS5$FamilyHistoryAD)
+table(DMRS5$T40_Gcar)
+
+table(DMRS5$APOE_all)
+table(DMRS5$APOE_all, DMRS5$T40_Gcar)
+```
+
+```{r MANOVA, include=FALSE}
+#APOE without T40 
+res <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ APOE_all,data=DMRS3)
+summary(res)
+
+res2 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS3)
+summary(res2)
+
+#interactions
+asr <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ APOE_all*Sex+Age+Education+SocialClass+FamilyHistoryAD,data=DMRS3)
+summary(asr) #ns
+
+aar <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ APOE_all*Age+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS3)
+summary(aar) #ns
+
+
+#T40 - all participants
+res <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar,data=DMRS5)
+summary(res)
+
+res2 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar+APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS5)
+summary(res2) #trending T40
+
+#interactions
+res3 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar*Sex+APOE_all+Age+Education+SocialClass+FamilyHistoryAD,data=DMRS5)
+summary(res3) #ns int
+
+res4 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar*Age+APOE_all+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS5)
+summary(res4) #ns int
+
+
+#APOE4 only
+res5 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar,data=DMRS6)
+summary(res5) #ns
+
+res6 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS6)
+summary(res6) #ns
+
+#interactions
+res7 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD,data=DMRS6)
+summary(res7) #int ns
+
+res8 <- manova(cbind(rsfMRI_Component1,rsfMRI_Component2,rsfMRI_Component3,rsfMRI_Component4,rsfMRI_Component5,rsfMRI_Component6,rsfMRI_Component7,rsfMRI_Component8,rsfMRI_Component9,rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18,rsfMRI_Component19,rsfMRI_Component20,rsfMRI_Component21) ~ T40_Gcar*Age+Sex+Education+SocialClass+FamilyHistoryAD,data=DMRS6)
+summary(res8) #int ns
+```
+
+```{r APOE without T40}
+fit <- aov(rsfMRI_Component1 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component1 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component2 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component3 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component3 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise",adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component4 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component5 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component5 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe") #ns
+
+fit <- aov(rsfMRI_Component6 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component6 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component7 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component7 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component8 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component8 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component9 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component9 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component10 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component11 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component12 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component13 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component13 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component14 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component14 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component15 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component15 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component16 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component17 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component17 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component18 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component19 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component19 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe") #ns
+
+fit <- aov(rsfMRI_Component20 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component20 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component21 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component21 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+```
+
+```{r T40 Main Effects - ALL PARTICIPANTS }
+fit <- aov(rsfMRI_Component1 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component1 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component2 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component3 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component3 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+
+fit <- aov(rsfMRI_Component4 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component5 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component5 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+
+fit <- aov(rsfMRI_Component6 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component6 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component7 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component7 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component8 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component9 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component10 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component11 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component12 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component13 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component14 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component15 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component16 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component17 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+
+fit <- aov(rsfMRI_Component18 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component19 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component20 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component20 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component21 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component21 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+```
+
+```{r T40 * Sex - ALL PARTICIPANTS, include=FALSE}
+levels(DMRS5$T40_Gcar)[levels(DMRS5$T40_Gcar)=='0'] = 'Non-Carrier'
+levels(DMRS5$T40_Gcar)[levels(DMRS5$T40_Gcar)=='1'] = 'Carrier'
+
+fit <- aov(rsfMRI_Component1 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+
+fit <- aov(rsfMRI_Component2 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component2 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component3 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component4 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component5 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component6 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component7 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component8 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+
+fit <- aov(rsfMRI_Component9 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+lm_out <- lm(rsfMRI_Component9 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component10 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component11 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component11 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component12 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component12 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component13 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component14 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component15 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component16 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component17 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component18 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+lm_out <- lm(rsfMRI_Component18 ~ T40_Gcar*Sex+Age+SocialClass+Education+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+    mutate(
+        ymin=emmean-SE,
+        ymax=emmean+SE,
+    )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+contrast(post_hoc, adjust="Scheffe")
+
+fit <- aov(rsfMRI_Component19 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component20 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+
+fit <- aov(rsfMRI_Component21 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+summary(lm.beta(fit))
+Anova(fit, type="II")
+```
+
+```{r Figure 1, include=FALSE}
+
+DMRS3$APOE_all <- factor(DMRS3$APOE_all, levels = c("E2", "E3", "E4"))
+
+lm_out <- lm(rsfMRI_Component3 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p1 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Motor Planning (IC3)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(2.00, 2.30))
+
+
+p1 <- p1 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+      
+
+lm_out <- lm(rsfMRI_Component6 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p2 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Left Auditory Processing (IC6)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(1.85, 2.00))
+
+p2 <- p2 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+      
+
+lm_out <- lm(rsfMRI_Component7 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p3 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Memory Consolidation (IC7)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(1.80, 1.95))
+
+p3 <- p3 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+       
+
+lm_out <- lm(rsfMRI_Component8 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p4 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Primary Visual (IC8)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(2.50, 2.90))
+
+p4 <- p4 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+      
+
+lm_out <- lm(rsfMRI_Component9 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p5 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Central Executive Function (IC9)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(2.30, 2.70))
+
+p5 <- p5 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+        
+
+lm_out <- lm(rsfMRI_Component15 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p6 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Cerebellum (IC15)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(0.90, 1.05))
+
+p6 <- p6 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+       
+
+lm_out <- lm(rsfMRI_Component20 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p7 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Posterior Default Mode (IC20)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(1.75, 1.90))
+
+p7 <- p7 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+       
+
+lm_out <- lm(rsfMRI_Component21 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p8 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL) +
+  ggtitle("Prefrontal (IC21)") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  coord_cartesian(ylim = c(1.50, 1.70))
+
+p8 <- p8 + theme(text = element_text(size=16),
+                strip.text.x = element_text(size=16),
+                strip.text.y = element_text(size=16)) 
+       
+
+multiplot(p1, p5, p2, p6, p3, p7, p4, p8, cols=4)
+
+
+lm_out <- lm(rsfMRI_Component20 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=DMRS3)
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("APOE Haplotype") +
+  ylab("Posterior Default Mode Network (IC20)") +
+  coord_cartesian(ylim = c(1.75, 1.90))
+```
+
+```{r Figure 2, include=FALSE}
+
+levels(DMRS5$T40_Gcar)[levels(DMRS5$T40_Gcar)=='0'] = 'Non-G carrier'
+levels(DMRS5$T40_Gcar)[levels(DMRS5$T40_Gcar)=='1'] = 'G carrier'
+
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p1 <- ggplot(post_hoc2, aes(y=emmean, x=T40_Gcar))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("TOMM40 Group") +
+  ylab("Language Comprehension (IC17)") +
+  coord_cartesian(ylim = c(1.75, 1.90))
+
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p2 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("APOE Status") +
+  ylab("Language Comprehension (IC17)") +
+  coord_cartesian(ylim = c(1.75, 1.90))
+
+lm_out <- lm(rsfMRI_Component20 ~ T40_Gcar+Age+Sex+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p3 <- ggplot(post_hoc2, aes(y=emmean, x=T40_Gcar))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("TOMM40 Group") +
+  ylab("Posterior Default Mode (IC20)") +
+  coord_cartesian(ylim = c(1.75, 1.90))
+
+post_hoc <- emmeans(lm_out, ~APOE_all)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="Scheffe")
+
+p4 <- ggplot(post_hoc2, aes(y=emmean, x=APOE_all))+
+  geom_bar(stat="identity", position="dodge", fill="#80daeb")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("APOE Status") +
+  ylab("Posterior Default Mode (IC20)") +
+  coord_cartesian(ylim = c(1.75, 1.90))
+
+multiplot(p1, p3, p2, p4, cols=2)
+
+#sex int
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise")
+
+ggplot(post_hoc2, aes(y=emmean, x=T40_Gcar, fill=Sex))+
+  geom_bar(stat="identity", position="dodge")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("T40 Group") +
+  ylab("Language Comprehension") +
+  ggtitle("The Difference in Resting State fMRI per\nT40 category in UK Biobank cohort")+
+    coord_cartesian(ylim = c(1.60, 2.00))
+
+lm_out <- lm(rsfMRI_Component17 ~ T40_Gcar*Sex+Age+Education+SocialClass+FamilyHistoryAD+APOE_all, data=DMRS5)
+post_hoc <- emmeans(lm_out, ~T40_Gcar+Sex)
+post_hoc2 <- summary(post_hoc) %>%
+  mutate(
+    ymin=emmean-SE,
+    ymax=emmean+SE,
+  )
+post_hoc2
+contrast(post_hoc, "revpairwise", adjust="scheffe")
+
+ggplot(post_hoc2, aes(y=emmean, x=T40_Gcar, fill=Sex))+
+  geom_bar(stat="identity", position="dodge")+
+  geom_errorbar(width=0.25, position=position_dodge(0.9),
+                aes(ymin=ymin, ymax=ymax))+theme_bw() + 
+  xlab("TOMM40 Group") +
+  ylab("Language Comprehension (IC17)") +
+    coord_cartesian(ylim = c(1.60, 2.00))
+
+```
+
+
