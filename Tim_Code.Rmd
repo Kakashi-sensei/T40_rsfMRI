@@ -1,0 +1,19 @@
+---
+title: "TimScript"
+author: "Tianqi(Tim)"
+date: "6/14/2021"
+output: html_document
+---
+
+```{r}
+TOMM40 <- read.csv("https://raw.githubusercontent.com/Kakashi-sensei/T40_rsfMRI/main/UKB_Jan_27_2020.csv", header=TRUE)
+
+TOMM40 <- TOMM40[as.numeric(rownames(unique(data.frame(TOMM40$EID)[1]))),]
+
+colnames(TOMM40)[colnames(TOMM40)=="RecruitmentAge"] <- "Age"
+
+require(dplyr)
+
+TOMM40s <- select(TOMM40, EID, Dx_CNSDisease, Dx_Dementia, Dx_CeVDisease, Sex, Age, Education, SocialClass, APOE_all, FamilyHistoryAD, T40_Gcar, rsfMRI_Component1, rsfMRI_Component2, rsfMRI_Component3, rsfMRI_Component4, rsfMRI_Component5, rsfMRI_Component6, rsfMRI_Component7, rsfMRI_Component8, rsfMRI_Component9, rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18, rsfMRI_Component19, rsfMRI_Component20, rsfMRI_Component21)
+```
+
