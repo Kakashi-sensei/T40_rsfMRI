@@ -5,6 +5,23 @@ date: "6/14/2021"
 output: html_document
 ---
 
+```{r Libraries, include=FALSE}
+###########
+#Libraries#
+###########
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+
+# usage
+packages <- c("tidyverse", "ggpubr", "rstatix", "car","broom")
+ipak(packages)
+```
+
+
 ```{r}
 TOMM40 <- read.csv("https://raw.githubusercontent.com/Kakashi-sensei/T40_rsfMRI/main/UKB_Jan_27_2020.csv", header=TRUE)
 
@@ -15,5 +32,11 @@ colnames(TOMM40)[colnames(TOMM40)=="RecruitmentAge"] <- "Age"
 require(dplyr)
 
 TOMM40s <- select(TOMM40, EID, Dx_CNSDisease, Dx_Dementia, Dx_CeVDisease, Sex, Age, Education, SocialClass, APOE_all, FamilyHistoryAD, T40_Gcar, rsfMRI_Component1, rsfMRI_Component2, rsfMRI_Component3, rsfMRI_Component4, rsfMRI_Component5, rsfMRI_Component6, rsfMRI_Component7, rsfMRI_Component8, rsfMRI_Component9, rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18, rsfMRI_Component19, rsfMRI_Component20, rsfMRI_Component21)
+
+TOMM40s$SocialClass <- relevel(TOMM40s$SocialClass, ref="UpperClass")
+TOMM40s$FamilyHistoryAD <- as.factor(TOMM40s$FamilyHistoryAD)
+levels(TOMM40s$FamilyHistoryAD) <- c("Neg", "Pos")
+TOMM40s$Education<- as.factor(TOMM40s$Education)
+TOMM40s$Sex <- factor(TOMM40s$Sex)
 ```
 
