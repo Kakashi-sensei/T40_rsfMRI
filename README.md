@@ -13,7 +13,6 @@ SocialClass         2    2.4   1.213   3.7508 0.02353 *
 T40_Gcar:Age        1    0.1   0.054   0.1660 0.68367    
 Residuals       10456 3382.6   0.324                     
 
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 ---
 
  Response 2 :
@@ -36,8 +35,6 @@ FamilyHistoryAD     1    0.01   0.008   0.0316    0.8589
 SocialClass         2    0.11   0.056   0.2165    0.8054    
 T40_Gcar:Age        1    0.13   0.126   0.4828    0.4872    
 Residuals       10456 2723.85   0.261                       
-
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 ---
  Response 4 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -48,7 +45,6 @@ FamilyHistoryAD     1    0.0   0.002   0.0046  0.946113
 SocialClass         2    4.0   2.020   5.2350  0.005341 ** 
 T40_Gcar:Age        1    0.0   0.008   0.0203  0.886828    
 Residuals       10456 4034.5   0.386                       
-
 ---
  Response 5 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -60,7 +56,6 @@ SocialClass         2    9.30   4.652  19.0849 5.329e-09 ***
 T40_Gcar:Age        1    0.04   0.043   0.1765    0.6744    
 Residuals       10456 2548.47   0.244                       
 ---
-
  Response 6 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.88   0.875   4.1761   0.04102 *  
@@ -111,7 +106,6 @@ SocialClass         2    9.9   4.952  14.3678 5.871e-07 ***
 T40_Gcar:Age        1    0.3   0.293   0.8499    0.3566    
 Residuals       10456 3604.1   0.345                       
 ---
-
  Response 11 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.07   0.075   0.4047 0.5246878    
@@ -172,7 +166,6 @@ SocialClass         2    5.57   2.783  14.8928 3.478e-07 ***
 T40_Gcar:Age        1    0.17   0.174   0.9293    0.3351    
 Residuals       10456 1954.22   0.187                       
 ---
-
  Response 17 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.00   0.005   0.0189    0.8906    
