@@ -1,7 +1,15 @@
 # T40_rsfMRI
-## MACOVA results report
-Sex, FamilyHistoryAD, and SocialClass were used as factors
+---
+## MANOVA/MANCOVA test
+* detailed codes can be found in [Tim_Code.Rmd](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/Tim_Code.Rmd)
+* The Original data is [UKB_Jan_27_2020.csv](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/UKB_Jan_27_2020.csv)
+* The sorted data is
+[T40_rsfMRI](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/TOMM40s.csv)
+* SL's code is [T40_rsfMRI](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/UKB_TOMM40.Rmd)
 
+###Sex, FamilyHistoryAD, and SocialClass were used as factors
+* MANCOVA report
+```
  Response 1 :
                    Df Sum Sq Mean Sq  F value  Pr(>F)    
 T40_Gcar            1    0.2   0.199   0.6141 0.43325    
@@ -255,3 +263,4 @@ Residuals       10456 1569.61   0.150
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
 2244 observations deleted due to missingness
+```
