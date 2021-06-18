@@ -14,7 +14,6 @@ T40_Gcar:Age        1    0.1   0.054   0.1660 0.68367
 Residuals       10456 3382.6   0.324                     
 
 ---
-
  Response 2 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    1.4   1.383   3.1727   0.07491 .  
@@ -36,6 +35,7 @@ SocialClass         2    0.11   0.056   0.2165    0.8054
 T40_Gcar:Age        1    0.13   0.126   0.4828    0.4872    
 Residuals       10456 2723.85   0.261                       
 ---
+
  Response 4 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    1.0   0.972   2.5193  0.112490    
@@ -45,6 +45,7 @@ FamilyHistoryAD     1    0.0   0.002   0.0046  0.946113
 SocialClass         2    4.0   2.020   5.2350  0.005341 ** 
 T40_Gcar:Age        1    0.0   0.008   0.0203  0.886828    
 Residuals       10456 4034.5   0.386                       
+
 ---
  Response 5 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -55,6 +56,7 @@ FamilyHistoryAD     1    0.01   0.010   0.0411    0.8393
 SocialClass         2    9.30   4.652  19.0849 5.329e-09 ***
 T40_Gcar:Age        1    0.04   0.043   0.1765    0.6744    
 Residuals       10456 2548.47   0.244                       
+
 ---
  Response 6 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -65,6 +67,7 @@ FamilyHistoryAD     1    0.06   0.055   0.2631   0.60799
 SocialClass         2    4.04   2.018   9.6305 6.628e-05 ***
 T40_Gcar:Age        1    0.11   0.112   0.5323   0.46565    
 Residuals       10456 2191.21   0.210                       
+
 ---
  Response 7 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -75,6 +78,7 @@ FamilyHistoryAD     1    0.71   0.709   3.4889   0.06181 .
 SocialClass         2    0.52   0.259   1.2773   0.27884    
 T40_Gcar:Age        1    0.40   0.400   1.9694   0.16054    
 Residuals       10456 2124.24   0.203                       
+
 ---
  Response 8 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -85,6 +89,7 @@ FamilyHistoryAD     1    0.0    0.02   0.0171 0.8961077
 SocialClass         2   12.9    6.44   7.0496 0.0008719 ***
 T40_Gcar:Age        1    0.0    0.05   0.0518 0.8200167    
 Residuals       10456 9552.3    0.91                       
+
 ---
  Response 9 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -95,6 +100,7 @@ FamilyHistoryAD     1    0.2   0.172   0.4852  0.486112
 SocialClass         2    5.3   2.629   7.4288  0.000597 ***
 T40_Gcar:Age        1    0.0   0.021   0.0593  0.807654    
 Residuals       10456 3700.8   0.354                       
+
 ---
  Response 10 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -105,6 +111,7 @@ FamilyHistoryAD     1    0.0   0.035   0.1029    0.7484
 SocialClass         2    9.9   4.952  14.3678 5.871e-07 ***
 T40_Gcar:Age        1    0.3   0.293   0.8499    0.3566    
 Residuals       10456 3604.1   0.345                       
+
 ---
  Response 11 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -115,6 +122,7 @@ FamilyHistoryAD     1    0.00   0.004   0.0214 0.8838157
 SocialClass         2    2.96   1.479   8.0174 0.0003317 ***
 T40_Gcar:Age        1    0.16   0.157   0.8522 0.3559590    
 Residuals       10456 1929.29   0.185                       
+
 ---
  Response 12 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -125,6 +133,7 @@ FamilyHistoryAD     1    0.05   0.054   0.2462   0.61980
 SocialClass         2   10.01   5.005  22.9515 1.133e-10 ***
 T40_Gcar:Age        1    0.00   0.000   0.0003   0.98555    
 Residuals       10456 2280.27   0.218                       
+
 ---
  Response 13 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -135,6 +144,7 @@ FamilyHistoryAD     1    0.00   0.001   0.0062  0.937010
 SocialClass         2    1.38   0.692   4.9489  0.007108 ** 
 T40_Gcar:Age        1    0.01   0.006   0.0397  0.842111    
 Residuals       10456 1462.83   0.140                       
+
 ---
  Response 14 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -145,6 +155,7 @@ FamilyHistoryAD     1   0.06   0.059   0.6544    0.4186
 SocialClass         2   2.27   1.137  12.5315 3.665e-06 ***
 T40_Gcar:Age        1   0.00   0.002   0.0233    0.8788    
 Residuals       10456 948.34   0.091                       
+
 ---
  Response 15 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -155,6 +166,7 @@ FamilyHistoryAD     1   0.01   0.012   0.1284   0.72006
 SocialClass         2   5.31   2.654  29.3528  1.94e-13 ***
 T40_Gcar:Age        1   0.25   0.255   2.8172   0.09329 .  
 Residuals       10456 945.39   0.090                       
+
 ---
  Response 16 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -165,6 +177,7 @@ FamilyHistoryAD     1    0.04   0.040   0.2115    0.6456
 SocialClass         2    5.57   2.783  14.8928 3.478e-07 ***
 T40_Gcar:Age        1    0.17   0.174   0.9293    0.3351    
 Residuals       10456 1954.22   0.187                       
+
 ---
  Response 17 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -175,6 +188,7 @@ FamilyHistoryAD     1    0.06   0.059   0.2278    0.6332
 SocialClass         2    6.39   3.196  12.2419 4.894e-06 ***
 T40_Gcar:Age        1    0.05   0.048   0.1821    0.6696    
 Residuals       10456 2729.42   0.261                       
+
 ---
  Response 18 :
                    Df Sum Sq Mean Sq   F value    Pr(>F)    
@@ -185,6 +199,7 @@ FamilyHistoryAD     1   0.00   0.000    0.0020 0.9642233
 SocialClass         2   1.36   0.680    8.6587 0.0001749 ***
 T40_Gcar:Age        1   0.01   0.008    0.1001 0.7517323    
 Residuals       10456 821.12   0.079                        
+
 ---
  Response 19 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
@@ -195,6 +210,7 @@ FamilyHistoryAD     1    0.0   0.033   0.0588  0.808331
 SocialClass         2    6.9   3.427   6.0448  0.002378 ** 
 T40_Gcar:Age        1    0.2   0.220   0.3878  0.533473    
 Residuals       10456 5928.1   0.567                       
+
 ---
  Response 20 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -205,6 +221,7 @@ FamilyHistoryAD     1    0.01   0.010   0.0554 0.8139036
 SocialClass         2    2.17   1.084   5.9531 0.0026067 ** 
 T40_Gcar:Age        1    0.00   0.000   0.0003 0.9869529    
 Residuals       10456 1904.18   0.182                       
+
 ---
  Response 21 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -215,6 +232,7 @@ FamilyHistoryAD     1    0.13   0.126   0.8382   0.35995
 SocialClass         2    4.81   2.405  16.0184 1.132e-07 ***
 T40_Gcar:Age        1    0.00   0.000   0.0001   0.99210    
 Residuals       10456 1569.61   0.150                       
+
 ---
 
 2244 observations deleted due to missingness
