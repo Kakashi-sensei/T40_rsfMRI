@@ -6,37 +6,117 @@ output: html_document
 ---
 
 ```{r Libraries, include=FALSE}
-###########
-#Libraries#
-###########
-ipak <- function(pkg){
-    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-    if (length(new.pkg)) 
-        install.packages(new.pkg, dependencies = TRUE)
-    sapply(pkg, require, character.only = TRUE)
-}
+#packages
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+if (!require("ggpubr")) install.packages("ggpubr")
+library(ggpubr)
+if (!require("rstatix")) install.packages("rstatix")
+library(rstatix)
+if (!require("car")) install.packages("car")
+library(car)
+if (!require("broom")) install.packages("broom")
+library(broom)
+if (!require("MASS")) install.packages("MASS")
+library(MASS)
 
-# usage
-packages <- c("tidyverse", "ggpubr", "rstatix", "car","broom")
-ipak(packages)
 ```
 
 
 ```{r}
+#sort data
 TOMM40 <- read.csv("https://raw.githubusercontent.com/Kakashi-sensei/T40_rsfMRI/main/UKB_Jan_27_2020.csv", header=TRUE)
 
 TOMM40 <- TOMM40[as.numeric(rownames(unique(data.frame(TOMM40$EID)[1]))),]
 
 colnames(TOMM40)[colnames(TOMM40)=="RecruitmentAge"] <- "Age"
 
-require(dplyr)
-
 TOMM40s <- select(TOMM40, EID, Dx_CNSDisease, Dx_Dementia, Dx_CeVDisease, Sex, Age, Education, SocialClass, APOE_all, FamilyHistoryAD, T40_Gcar, rsfMRI_Component1, rsfMRI_Component2, rsfMRI_Component3, rsfMRI_Component4, rsfMRI_Component5, rsfMRI_Component6, rsfMRI_Component7, rsfMRI_Component8, rsfMRI_Component9, rsfMRI_Component10,rsfMRI_Component11,rsfMRI_Component12,rsfMRI_Component13,rsfMRI_Component14,rsfMRI_Component15,rsfMRI_Component16,rsfMRI_Component17,rsfMRI_Component18, rsfMRI_Component19, rsfMRI_Component20, rsfMRI_Component21)
 
-TOMM40s$SocialClass <- relevel(TOMM40s$SocialClass, ref="UpperClass")
+TOMM40s$SocialClass <- as.factor(TOMM40s$SocialClass)
 TOMM40s$FamilyHistoryAD <- as.factor(TOMM40s$FamilyHistoryAD)
 levels(TOMM40s$FamilyHistoryAD) <- c("Neg", "Pos")
 TOMM40s$Education<- as.factor(TOMM40s$Education)
 TOMM40s$Sex <- factor(TOMM40s$Sex)
-```
 
+#MANOVA
+
+if (!require("psych")) install.packages("psych")
+library(psych)
+if (!require("effects")) install.packages("effects")
+library(effects)
+rm(TOMM40)
+rm(packages)
+rm(ipak)
+#write.csv(TOMM40s,file="C:/Users/46554/github/R/T40_rsfMRI/T40_rsfMRI/TOMM40s.csv")
+
+# test assumption: perform MANOVA to see if the interaction term of the covariate and the group variable is significant#
+
+# if interaction term insignificant then assumption of parallel slopes holds#
+
+outcome = cbind (TOMM40s$rsfMRI_Component1, TOMM40s$rsfMRI_Component2, TOMM40s$rsfMRI_Component3, TOMM40s$rsfMRI_Component4, TOMM40s$rsfMRI_Component5, TOMM40s$rsfMRI_Component6, TOMM40s$rsfMRI_Component7, TOMM40s$rsfMRI_Component8, TOMM40s$rsfMRI_Component9, TOMM40s$rsfMRI_Component10, TOMM40s$rsfMRI_Component11, TOMM40s$rsfMRI_Component12, TOMM40s$rsfMRI_Component13, TOMM40s$rsfMRI_Component14, TOMM40s$rsfMRI_Component15, TOMM40s$rsfMRI_Component16, TOMM40s$rsfMRI_Component17, TOMM40s$rsfMRI_Component18, TOMM40s$rsfMRI_Component19, TOMM40s$rsfMRI_Component20, TOMM40s$rsfMRI_Component21)
+
+model = manova (outcome ~ Sex + T40_Gcar + Sex*T40_Gcar, data=TOMM40s) #one-way MANOVA, Sex is for Groups, and T40_Gcar is for covariate
+summary(model, test="Wilks", type = "III")
+# Sex:T40_Gcar     1 0.99826    0.905     21  10911  0.584282
+# it passes the test
+summary(model, test="Pillai", type = "III")
+summary(model, test="Hotelling", type = "III")
+summary(model, test="Roy", type = "III")
+
+model = manova (outcome ~ Education + T40_Gcar + Education*T40_Gcar, data=TOMM40s) #one-way MANOVA, Education is for Groups, and T40_Gcar is for covariate
+summary(model, test="Wilks", type = "III")
+
+model = manova (outcome ~ FamilyHistoryAD + T40_Gcar + FamilyHistoryAD*T40_Gcar, data=TOMM40s) #one-way MANOVA, family history is for Groups, and T40_Gcar is for covariate
+summary(model, test="Wilks", type = "III")
+
+model = manova (outcome ~ SocialClass + T40_Gcar + SocialClass*T40_Gcar, data=TOMM40s) #one-way MANOVA, social class is for Groups, and T40_Gcar is for covariate
+summary(model, test="Wilks", type = "III")
+
+
+# test assumption: Homoscedosticity of regression slopes (check by comparing MSE from separate group regressions)#
+modelA = aov(rsfMRI_Component1~T40_Gcar + Sex, data= TOMM40s)#T40_Gcar is for covariate
+summary(modelA, type="III")
+#T40_Gcar is not significant here(0.569)
+
+adjmeanA = effect("Sex", modelA, se = TRUE, xlevels=2)
+summary(adjmeanA)
+# Sex effect   Female 2.522368    Male 2.470038
+
+adjmeanA$se
+
+modelB = aov(rsfMRI_Component2~T40_Gcar + Sex, data= TOMM40s)#T40_Gcar is for covariate
+summary(modelB, type="III")
+#T40_Gcar is not significant here(0.0648)
+
+adjmeanB = effect("Sex", modelB, se = TRUE, xlevels=2)
+summary(adjmeanB)
+# Sex effect   Female 2.050129    Male 2.113963
+
+adjmeanB$se
+
+modelC = aov(rsfMRI_Component3~T40_Gcar + Sex, data= TOMM40s)#T40_Gcar is for covariate
+summary(modelC, type="III")#T40_Gcar is not significant here(0.795748)
+
+model4 = aov(rsfMRI_Component4~T40_Gcar + Sex, data= TOMM40s)#T40_Gcar is for covariate
+summary(model4, type="III")#T40_Gcar is not significant here(0.104); Sex is not significant too(0.899)
+
+#Homoscedosticity of regression slopes could be violated here.
+
+fit <- manova(outcome ~ T40_Gcar, data=TOMM40s)
+summary(fit, test="Pillai")
+# p=0.01009
+
+#MANCOVA test
+if (!require("jmv")) install.packages("jmv")
+library(jmv)
+
+fit <- mancova(data = TOMM40s, deps = vars(rsfMRI_Component1,rsfMRI_Component2), factors = Sex, covs = Age)
+#Error in mvnormtest::mshapiro.test(dataDeps) : sample size must be between 3 and 5000
+
+modelx = aov(outcome~T40_Gcar*Age + Sex + FamilyHistoryAD + SocialClass, data= TOMM40s)
+
+summary(modelx, type="III")
+
+rm(list = ls())
+```
