@@ -7,7 +7,7 @@
 [T40_rsfMRI](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/TOMM40s.csv)
 * SL's code is [T40_rsfMRI](https://github.com/Kakashi-sensei/T40_rsfMRI/blob/main/UKB_TOMM40.Rmd)
 
-###Sex, FamilyHistoryAD, and SocialClass were used as factors
+### Sex, FamilyHistoryAD, and SocialClass were used as factors
 * MANCOVA report
 ```
  Response 1 :
