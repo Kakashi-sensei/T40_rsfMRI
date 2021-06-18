@@ -60,7 +60,6 @@ SocialClass         2    9.30   4.652  19.0849 5.329e-09 ***
 T40_Gcar:Age        1    0.04   0.043   0.1765    0.6744    
 Residuals       10456 2548.47   0.244                       
 ---
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
  Response 6 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
@@ -72,7 +71,6 @@ SocialClass         2    4.04   2.018   9.6305 6.628e-05 ***
 T40_Gcar:Age        1    0.11   0.112   0.5323   0.46565    
 Residuals       10456 2191.21   0.210                       
 ---
-
  Response 7 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.29   0.289   1.4228   0.23297    
@@ -83,7 +81,6 @@ SocialClass         2    0.52   0.259   1.2773   0.27884
 T40_Gcar:Age        1    0.40   0.400   1.9694   0.16054    
 Residuals       10456 2124.24   0.203                       
 ---
-
  Response 8 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    4.0    4.00   4.3776 0.0364374 *  
@@ -94,8 +91,6 @@ SocialClass         2   12.9    6.44   7.0496 0.0008719 ***
 T40_Gcar:Age        1    0.0    0.05   0.0518 0.8200167    
 Residuals       10456 9552.3    0.91                       
 ---
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-
  Response 9 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    2.0   1.969   5.5624  0.018369 *  
@@ -106,7 +101,6 @@ SocialClass         2    5.3   2.629   7.4288  0.000597 ***
 T40_Gcar:Age        1    0.0   0.021   0.0593  0.807654    
 Residuals       10456 3700.8   0.354                       
 ---
-
  Response 10 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    1.0   1.010   2.9296    0.0870 .  
@@ -128,7 +122,6 @@ SocialClass         2    2.96   1.479   8.0174 0.0003317 ***
 T40_Gcar:Age        1    0.16   0.157   0.8522 0.3559590    
 Residuals       10456 1929.29   0.185                       
 ---
-
  Response 12 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    1.16   1.157   5.3066   0.02126 *  
@@ -139,7 +132,6 @@ SocialClass         2   10.01   5.005  22.9515 1.133e-10 ***
 T40_Gcar:Age        1    0.00   0.000   0.0003   0.98555    
 Residuals       10456 2280.27   0.218                       
 ---
-
  Response 13 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.09   0.086   0.6147  0.433030    
@@ -150,7 +142,6 @@ SocialClass         2    1.38   0.692   4.9489  0.007108 **
 T40_Gcar:Age        1    0.01   0.006   0.0397  0.842111    
 Residuals       10456 1462.83   0.140                       
 ---
-
  Response 14 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1   0.04   0.040   0.4400    0.5071    
@@ -161,7 +152,6 @@ SocialClass         2   2.27   1.137  12.5315 3.665e-06 ***
 T40_Gcar:Age        1   0.00   0.002   0.0233    0.8788    
 Residuals       10456 948.34   0.091                       
 ---
-
  Response 15 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1   0.53   0.532   5.8881   0.01526 *  
@@ -172,7 +162,6 @@ SocialClass         2   5.31   2.654  29.3528  1.94e-13 ***
 T40_Gcar:Age        1   0.25   0.255   2.8172   0.09329 .  
 Residuals       10456 945.39   0.090                       
 ---
-
  Response 16 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.50   0.497   2.6593    0.1030    
@@ -194,7 +183,6 @@ SocialClass         2    6.39   3.196  12.2419 4.894e-06 ***
 T40_Gcar:Age        1    0.05   0.048   0.1821    0.6696    
 Residuals       10456 2729.42   0.261                       
 ---
-
  Response 18 :
                    Df Sum Sq Mean Sq   F value    Pr(>F)    
 T40_Gcar            1   0.10   0.099    1.2623 0.2612445    
@@ -205,7 +193,6 @@ SocialClass         2   1.36   0.680    8.6587 0.0001749 ***
 T40_Gcar:Age        1   0.01   0.008    0.1001 0.7517323    
 Residuals       10456 821.12   0.079                        
 ---
-
  Response 19 :
                    Df Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    3.4   3.438   6.0642  0.013811 *  
@@ -216,7 +203,6 @@ SocialClass         2    6.9   3.427   6.0448  0.002378 **
 T40_Gcar:Age        1    0.2   0.220   0.3878  0.533473    
 Residuals       10456 5928.1   0.567                       
 ---
-
  Response 20 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    1.80   1.799   9.8764 0.0016788 ** 
@@ -227,7 +213,6 @@ SocialClass         2    2.17   1.084   5.9531 0.0026067 **
 T40_Gcar:Age        1    0.00   0.000   0.0003 0.9869529    
 Residuals       10456 1904.18   0.182                       
 ---
-
  Response 21 :
                    Df  Sum Sq Mean Sq  F value    Pr(>F)    
 T40_Gcar            1    0.43   0.435   2.8954   0.08886 .  
