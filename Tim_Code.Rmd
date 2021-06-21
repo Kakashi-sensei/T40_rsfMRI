@@ -120,3 +120,11 @@ summary(modelx, type="III")
 
 rm(list = ls())
 ```
+
+```{r}
+#6/21 rerun
+
+
+
+
+```
