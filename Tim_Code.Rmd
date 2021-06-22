@@ -122,9 +122,90 @@ rm(list = ls())
 ```
 
 ```{r}
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+
+# usage
+packages <- c("plyr", "dplyr", "stringr", "reshape2","ggplot2","glmnet","corrplot","data.table","lm.beta","knitr","jtools","interactions","sandwich", "emmeans","jmv","heplots","sjstats","formatR")
+ipak(packages)
+```
+
+
+
+```{r}
 #6/21 rerun
+DMS <- read.csv("https://raw.githubusercontent.com/Kakashi-sensei/T40_rsfMRI/main/TOMM40s.csv", header=TRUE)
+DMS <- DMS[as.numeric(rownames(unique(data.frame(DMS$EID)[1]))),]
 
+colnames(DMS)[colnames(DMS)=="RecruitmentAge"] <- "Age"
 
+require(dplyr)
 
+DMRS <- DMS
 
+DMRS$FamilyHistoryAD <- as.factor(DMRS$FamilyHistoryAD)
+levels(DMRS$FamilyHistoryAD) <- c("Neg", "Pos")
+DMRS$Education<- as.factor(DMRS$Education)
+DMRS$Sex <- factor(DMRS$Sex)
+levels(DMRS$Sex)
+levels(DMRS$Sex) <- c("Female", "Male")
+DMRS$Sex <- relevel(DMRS$Sex, ref="Male") 
+
+DMRS$T40_Gcar <- as.factor(DMRS$T40_Gcar)
+DMRS$Agecat<-cut(DMRS$Age, c(39,64,100),labels=c(1:2))
+levels(DMRS$Agecat) <- c("Middle Age","Old Age")
+#summary(DMRS$Agecat)
+DMRS <- na.omit(DMRS)
+
+DMRS <- DMRS[DMRS$Dx_CNSDisease!="1",]
+DMRS <- DMRS[DMRS$Dx_CeVDisease!="1",]
+DMRS <- DMRS[DMRS$Dx_Dementia!="1",]
+#After excluding these conditions -> 9961 obs
+
+DMRS2 <- DMRS[complete.cases(DMRS),] #10921 obs
+levels(DMRS2$T40_Gcar) <- c("Non-Carrier", "Carrier")
+
+#1.) E2’s vs. E3’s vs. E4’s
+#—E2/E2 + E2/E3 vs. E3/E3 vs. E2/E4 + E3/E4 + E4/E4
+DMRS2  <- DMRS[DMRS$APOE_all %in% c("e2/e2","e2/e3","e3/e3","e4/e3","e4/e4"),] #8640
+DMRS2 <- DMRS2[complete.cases(DMRS2),] #8222 obs
+
+DMRS3 <- DMRS2
+levels(DMRS3$T40_Gcar) <- c("Non-Carrier", "Carrier")
+
+nu <- data.frame(lapply(DMRS3,function(x) {x <- gsub("e2/e2","E2",x,fixed=TRUE)}))
+nu <- data.frame(lapply(nu,function(x) {x <- gsub("e2/e3","E2",x,fixed=TRUE)}))
+nu <- data.frame(lapply(nu,function(x) {x <- gsub("e3/e3","E3",x,fixed=TRUE)}))
+nu <- data.frame(lapply(nu,function(x) {x <- gsub("e4/e3","E4",x,fixed=TRUE)}))
+nu <- data.frame(lapply(nu,function(x) {x <- gsub("e4/e4","E4",x,fixed=TRUE)}))
+nu$APOE_all <- as.factor(nu$APOE_all) # Scott's method 8222 obs
+
+nu$Age <- as.numeric(nu$Age)
+nu$rsfMRI_Component1 <- as.numeric(nu$rsfMRI_Component1)
+nu$rsfMRI_Component2 <- as.numeric(nu$rsfMRI_Component2)
+nu$rsfMRI_Component3 <- as.numeric(nu$rsfMRI_Component3)
+nu$rsfMRI_Component4 <- as.numeric(nu$rsfMRI_Component4)
+nu$rsfMRI_Component5 <- as.numeric(nu$rsfMRI_Component5)
+nu$rsfMRI_Component6 <- as.numeric(nu$rsfMRI_Component6)
+nu$rsfMRI_Component7 <- as.numeric(nu$rsfMRI_Component7)
+nu$rsfMRI_Component8 <- as.numeric(nu$rsfMRI_Component8)
+nu$rsfMRI_Component9 <- as.numeric(nu$rsfMRI_Component9)
+nu$rsfMRI_Component10 <- as.numeric(nu$rsfMRI_Component10)
+nu$rsfMRI_Component11 <- as.numeric(nu$rsfMRI_Component11)
+nu$rsfMRI_Component12 <- as.numeric(nu$rsfMRI_Component12)
+nu$rsfMRI_Component13 <- as.numeric(nu$rsfMRI_Component13)
+nu$rsfMRI_Component14 <- as.numeric(nu$rsfMRI_Component14)
+nu$rsfMRI_Component15 <- as.numeric(nu$rsfMRI_Component15)
+nu$rsfMRI_Component16 <- as.numeric(nu$rsfMRI_Component16)
+nu$rsfMRI_Component17 <- as.numeric(nu$rsfMRI_Component17)
+nu$rsfMRI_Component18 <- as.numeric(nu$rsfMRI_Component18)
+nu$rsfMRI_Component19 <- as.numeric(nu$rsfMRI_Component19)
+nu$rsfMRI_Component20 <- as.numeric(nu$rsfMRI_Component20)
+nu$rsfMRI_Component21 <- as.numeric(nu$rsfMRI_Component21)
+
+#write.csv(nu,file="C:/Users/46554/github/R/T40_rsfMRI/T40_rsfMRI/nu.csv")
 ```
