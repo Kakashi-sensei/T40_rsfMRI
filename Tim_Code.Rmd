@@ -155,7 +155,7 @@ levels(DMRS$Sex)
 levels(DMRS$Sex) <- c("Female", "Male")
 DMRS$Sex <- relevel(DMRS$Sex, ref="Male") 
 
-DMRS$T40_Gcar <- as.factor(DMRS$T40_Gcar)
+DMRS5$T40_Gcar <- as.factor(DMRS5$T40_Gcar)
 DMRS$Agecat<-cut(DMRS$Age, c(39,64,100),labels=c(1:2))
 levels(DMRS$Agecat) <- c("Middle Age","Old Age")
 #summary(DMRS$Agecat)
@@ -283,7 +283,8 @@ summary(res8) #int ns
 ```
 
 ```{r APOE without T40}
-fit <- aov(rsfMRI_Component1 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=NU)
+fit <- aov(rsfMRI_Component4 ~  T40_Gcar*Sex + T40_Gcar + Agecat + Sex + Education +
+SocialClass + FamilyHistoryAD + APOE_all, data = DMRS5)
 summary(lm.beta(fit))
 Anova(fit, type="II")
 lm_out <- lm(rsfMRI_Component1 ~ APOE_all+Age+Sex+Education+SocialClass+FamilyHistoryAD, data=NU)
