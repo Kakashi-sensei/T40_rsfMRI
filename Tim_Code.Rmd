@@ -283,7 +283,7 @@ summary(res8) #int ns
 ```
 
 ```{r APOE without T40}
-fit <- aov(rsfMRI_Component4 ~  T40_Gcar*Sex + T40_Gcar + Agecat + Sex + Education +
+fit <- aov(rsfMRI_Component21 ~  T40_Gcar*Sex + T40_Gcar + Agecat + Sex + Education +
 SocialClass + FamilyHistoryAD + APOE_all, data = DMRS5)
 summary(lm.beta(fit))
 Anova(fit, type="II")
